@@ -26,17 +26,65 @@ def RealizesIn (S : ℝ) (J : List ℕ) : Prop :=
   ∃ (n : ℕ) (ctr : Fin n → ℝ × ℝ) (ang : Fin n → ℝ), PackIn (cbox S) ctr ang ∧
     ∃ σ : ℕ → Fin n, (∀ a ∈ J, ∀ b ∈ J, σ a = σ b → a = b) ∧ ∀ a ∈ J, InCellU a (ctr (σ a))
 
+/-- The `k`-element sublists of a list, in lexicographic order when the list is increasing. -/
+def combs : ℕ → List ℕ → List (List ℕ)
+  | 0, _ => [[]]
+  | _ + 1, [] => []
+  | k + 1, x :: xs => (combs k xs).map (x :: ·) ++ combs (k + 1) xs
+
+lemma mem_combs : ∀ (k : ℕ) (l J : List ℕ), J ∈ combs k l ↔ J.Sublist l ∧ J.length = k
+  | 0, l, J => by
+    have e : combs 0 l = [[]] := by cases l <;> rfl
+    rw [e, List.mem_singleton]
+    constructor
+    · rintro rfl; exact ⟨List.nil_sublist _, rfl⟩
+    · rintro ⟨-, h⟩; exact List.length_eq_zero_iff.mp h
+  | _ + 1, [], J => by
+    simp only [combs, List.not_mem_nil, false_iff, not_and, List.sublist_nil]
+    rintro rfl; simp
+  | k + 1, x :: xs, J => by
+    simp only [combs, List.mem_append, List.mem_map, mem_combs k xs, mem_combs (k + 1) xs,
+      List.sublist_cons_iff]
+    constructor
+    · rintro (⟨r, ⟨hr, hl⟩, rfl⟩ | ⟨h, hl⟩)
+      · exact ⟨Or.inr ⟨r, rfl, hr⟩, by simp [hl]⟩
+      · exact ⟨Or.inl h, hl⟩
+    · rintro ⟨h | ⟨r, rfl, hr⟩, hl⟩
+      · exact Or.inr ⟨h, hl⟩
+      · exact Or.inl ⟨r, ⟨hr, by simpa using hl⟩, rfl⟩
+
 /-- The author's canonical cases in lexicographic order (zero-based index, PROOF.md §4). -/
 def authorMasks : List (List ℕ) :=
-  canonicalMasks.insertionSort fun a b => ¬ b < a
+  (combs 11 (List.range 16)).filter fun J => !decide (hmask J < J)
 
 /-- Case number `i` of the author. -/
 def maskAt (i : ℕ) : List ℕ := authorMasks.getD i []
+
+lemma authorMasks_length : authorMasks.length = 2184 := by decide +kernel
+
+/-- The canonical cases are the author's, indexed. -/
+lemma mem_canonical_iff_maskAt {J : List ℕ} :
+    J ∈ canonicalMasks ↔ ∃ i < 2184, maskAt i = J := by
+  have h : ∀ J, J ∈ canonicalMasks ↔ J ∈ authorMasks := by
+    intro J
+    simp only [canonicalMasks, authorMasks, List.mem_filter, List.mem_sublistsLen, mem_combs]
+  rw [h, List.mem_iff_getElem]
+  constructor
+  · rintro ⟨i, hi, rfl⟩
+    exact ⟨i, by simpa [authorMasks_length] using hi, by simp [maskAt, List.getD_eq_getElem?_getD, hi]⟩
+  · rintro ⟨i, hi, rfl⟩
+    have hi' : i < authorMasks.length := by rw [authorMasks_length]; exact hi
+    exact ⟨i, hi', by simp [maskAt, List.getD_eq_getElem?_getD, hi']⟩
 
 /-- The four candidate cases. -/
 def candIdx : List ℕ := [438, 999, 1462, 1659]
 
 def J438 : List ℕ := [0, 1, 2, 3, 4, 8, 9, 10, 11, 13, 15]
+
+lemma maskAt_438 : maskAt 438 = J438 := by decide +kernel
+lemma maskAt_999 : maskAt 999 = [0, 1, 2, 4, 6, 7, 9, 10, 12, 14, 15] := by decide +kernel
+lemma maskAt_1462 : maskAt 1462 = [0, 1, 3, 5, 6, 8, 9, 11, 12, 13, 14] := by decide +kernel
+lemma maskAt_1659 : maskAt 1659 = [0, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14] := by decide +kernel
 
 /-- Cases excluded by the author's generic certificates and not by the field certificates. -/
 def genericIdx : List ℕ := [220, 1652, 1658, 1681, 1687, 1690, 1692, 1709, 1723, 1727, 1776, 1800, 1816, 1841, 1876, 2054, 2086, 2095, 2099, 2100, 2104, 2108, 2117, 2123, 2127, 2143, 2173]
