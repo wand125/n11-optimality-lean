@@ -172,7 +172,7 @@ def emit(ci, J, steps, tree, outdir, prefix="U2P"):
         lines.append(f"end {ns}\n")
         open(os.path.join(d, f"S{n}.lean"), "w").write("\n".join(lines))
     L = [f"import {mod}.S{n}" for n, *_ in info]
-    L += ["\nset_option linter.style.longLine false\n", f"namespace {ns}\n", "open FieldTree\n" + opn,
+    L += ["\nset_option linter.style.longLine false\nset_option maxRecDepth 100000\n", f"namespace {ns}\n", "open FieldTree\n" + opn,
           f"lemma hJ : J = maskAt {ci} := by decide +kernel\n"]
 
     def valid(n, st, keys):

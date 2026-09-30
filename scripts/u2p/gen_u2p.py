@@ -528,7 +528,7 @@ def emit_case(ci, J, steps, outdir, prefix="U2P"):
         open(os.path.join(d, f"S{n}.lean"), "w").write("\n".join(lines))
     # main
     L = [f"import {mod}.S{n}" for n, *_ in stepinfo]
-    L += ["\nset_option linter.style.longLine false\n", f"namespace {ns}\n", "open FieldTree\n" + opn,
+    L += ["\nset_option linter.style.longLine false\nset_option maxRecDepth 100000\n", f"namespace {ns}\n", "open FieldTree\n" + opn,
           f"lemma hJ : J = maskAt {ci} := by decide +kernel\n"]
     # owned facts
     def tri_valid_proof(n, st, keys):
@@ -560,9 +560,11 @@ def emit_case(ci, J, steps, outdir, prefix="U2P"):
 
 
 if __name__ == '__main__':
-    # python3 gen_u2p.py CASE OUTDIR [PREFIX]   (CASE: the author's canonical index, as `maskAt`)
+    # python3 gen_u2p.py CASE OUTDIR [PREFIX] [KMAX]   (CASE: the author's canonical index, as `maskAt`)
     ci = int(sys.argv[1]); outdir = sys.argv[2]
     prefix = sys.argv[3] if len(sys.argv) > 3 else "U2P"
+    if len(sys.argv) > 4:
+        KMAX = int(sys.argv[4])
     J, steps = exclude(ci, log=lambda s: print(s, flush=True))
     if steps is None:
         print('FAILED'); sys.exit(1)
