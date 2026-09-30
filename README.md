@@ -58,6 +58,41 @@ Remaining work:
 - U5Case438, to be started now that U2Rules and U4 are done;
 - collecting the per-case theorems into the unit theorems above, and then updating `main`.
 
+## Correspondence with Queuingtheorydotcom/11SquaresFormalized
+
+The author's own Lean formalization (commit `b237948`, Lean `v4.10.0-rc2`) states the same
+theorem with its own definitions, and leaves six `sorry` sites. The table maps each of them to the
+theorem of this branch that covers the same cases. Status on this branch is as of 2026-10-01.
+
+| author's `sorry` | cases | theorem here (file) | status here |
+|---|---|---|---|
+| `planData`, `program_calculations`, `leaf_calculations` (baseline family) | 1,931 baseline | `field_excluded` (`Split/UField.lean`) for the 1,904 field-certificate cases, and `generic_excluded` (`Split/U2Generic.lean`) for the other 27 | in progress. Field certificates 0, 3, 6 and 19 are kernel-checked on `main`. 1,656 of the 1,658 tree files of the others have passed the kernel. Generic: 27 of 27 generated, and case 220 is kernel-checked |
+| `prior_certificate_exists` | 76 prior | `prior_excluded` (`Split/U2Prior.lean`) | in progress: 72 of 76 generated, 34 cases kernel-checked |
+| `returned_certificate_exists` | 173 returned | `returned_excluded` (`Split/U2Returned.lean`) | in progress: 169 of 173 generated, 16 cases kernel-checked |
+| `case438_near_certificate` | case 438 | `case438` (`Split/U5Case438.lean`) | not started |
+
+Parts that are complete in the author's formalization correspond to the following theorems here,
+all kernel-checked with the standard axioms only:
+
+- the exact endpoint and the attaining construction: `minSide_le_T` (`Upper.lean`);
+- the closed-cell cover and the reduction to canonical cases: `exists_cell`, `canonicalMasks`
+  (`Cells.lean`) and `realizes_canonical` (`Split/U1Labels.lean`);
+- the D4 bridge: `d4_bridge` (`Split/U3D4.lean`);
+- the local rigidity of the construction: `local_isolation` (`Split/U4Local.lean`);
+- the centred frame and the final composition: `frame` (`Split/Frame.lean`) and `minSide_eq_T`
+  (`Split/U6Final.lean`; its only open inputs are the four theorems in the table above).
+
+**Case partition.** The author's case data (`recordedCaseTuples`, `baselineArray`, `priorArray`,
+`returnedArray`, `candidateArray`) were compared number by number with `maskAt` and the index
+lists of `Split/Interface.lean`. The 2,184 masks agree in the same order. The families agree
+exactly: 1,931 baseline cases, equal to the 1,904 field cases together with the 27 generic
+ones; 76 prior; 173 returned; and the candidates 438, 999, 1462 and 1659. Together they
+partition 0–2183 without overlap.
+
+**Definitions.** This branch builds on Evan Daniel's `Packs`/`minSide` (Lean `v4.33.1`), while
+the author uses `Packing`/`Packable` (Lean `v4.10.0-rc2`). Combining the two developments needs
+one equivalence lemma between the two notions of a packing.
+
 # Lean formalization toward s(11) = T (eleven unit squares)
 
 Work in progress on a Lean 4 formalization of the computer-assisted proof, by
