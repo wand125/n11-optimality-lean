@@ -151,6 +151,7 @@ class Tree:
             if j is not None:
                 kind, payload = 'cell', j
             else:
+                self.cur_u = (u0, u1)
                 r = self.leaf_fn(triples(u0, u1), xl, xh, yl, yh)
                 if r:
                     kind, payload = r
