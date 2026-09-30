@@ -1,3 +1,10 @@
+> **Branch `split`: work in progress.** This branch contains `sorry`. It holds the skeleton that
+> splits the remaining formalization into units, one Lean file per unit
+> (`lean/Sqpack/S11Opt/Split/`, see `SPLIT.md` there). The composition `minSide 11 = T` in
+> `Split/U6Final.lean` compiles, and it depends only on the units' placeholders. `build.sh`
+> rejects `sorry` and therefore does not pass on this branch. The kernel-checked results are on
+> `main`.
+
 # Lean formalization toward s(11) = T (eleven unit squares)
 
 Work in progress on a Lean 4 formalization of the computer-assisted proof, by
