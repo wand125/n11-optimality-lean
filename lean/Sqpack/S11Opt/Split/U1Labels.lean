@@ -396,49 +396,63 @@ lemma canonical_or_hmask {J : List ℕ} (hJ : J ∈ List.sublistsLen 11 (List.ra
   · refine Or.inr (List.mem_filter.mpr ⟨List.mem_sublistsLen.mpr ⟨?_, h2⟩, h3⟩)
     exact List.isSublist_iff_sublist.mp h1
 
+/-- The sorted list of the labels `l i`. -/
+def labList {n : ℕ} (l : Fin n → ℕ) : List ℕ :=
+  (List.range 16).filter fun a => decide (∃ i, l i = a)
+
+lemma mem_labList {n : ℕ} {l : Fin n → ℕ} (hl16 : ∀ i, l i < 16) {a : ℕ} :
+    a ∈ labList l ↔ ∃ i, l i = a := by
+  simp only [labList, List.mem_filter, List.mem_range, decide_eq_true_eq]
+  constructor
+  · exact fun h => h.2
+  · rintro ⟨i, rfl⟩; exact ⟨hl16 i, i, rfl⟩
+
+/-- Labels of a packing in `cbox S` are distinct, whichever containing closed cells are chosen. -/
+theorem labels_injective {S : ℝ} (hS : S ≤ Ux) {ctr : Fin 11 → ℝ × ℝ} {ang : Fin 11 → ℝ}
+    (h : PackIn (cbox S) ctr ang) {l : Fin 11 → ℕ} (hl16 : ∀ i, l i < 16)
+    (hlc : ∀ i, InCellU (l i) (ctr i)) : Function.Injective l := by
+  intro i j hij
+  by_contra hne
+  have h1 := one_le_dist (h.2 i j hne)
+  have h2 := same_cell (hl16 i) (hlc i) (hij ▸ hlc j) (centre_inB hS (h.1 i))
+    (centre_inB hS (h.1 j))
+  linarith
+
+lemma labList_mem {l : Fin 11 → ℕ} (hl16 : ∀ i, l i < 16) (hinj : Function.Injective l) :
+    labList l ∈ List.sublistsLen 11 (List.range 16) := by
+  refine List.mem_sublistsLen.mpr ⟨List.filter_sublist, ?_⟩
+  have hnd : (labList l).Nodup := List.nodup_range.filter _
+  have hfs : (labList l).toFinset = Finset.univ.image l := by
+    ext a; simp [List.mem_toFinset, mem_labList hl16]
+  rw [← List.toFinset_card_of_nodup hnd, hfs, Finset.card_image_of_injective _ hinj]
+  simp
+
+/-- A packing realizes the list of its labels. -/
+theorem realizesIn_labList {S : ℝ} {ctr : Fin 11 → ℝ × ℝ} {ang : Fin 11 → ℝ}
+    (h : PackIn (cbox S) ctr ang) {l : Fin 11 → ℕ} (hl16 : ∀ i, l i < 16)
+    (hlc : ∀ i, InCellU (l i) (ctr i)) : RealizesIn S (labList l) := by
+  let σ : ℕ → Fin 11 := fun a => if h : ∃ i, l i = a then h.choose else 0
+  have hσ : ∀ a ∈ labList l, l (σ a) = a := by
+    intro a ha
+    have hex := (mem_labList hl16).mp ha
+    simp only [σ, dif_pos hex]
+    exact hex.choose_spec
+  refine ⟨11, ctr, ang, h, σ, ?_, ?_⟩
+  · intro a ha b hb e
+    rw [← hσ a ha, ← hσ b hb, e]
+  · intro a ha
+    have := hlc (σ a)
+    rwa [hσ a ha] at this
+
 /-- **U1.**  A packing of 11 unit squares in `cbox S` (`S ≤ Ux`) realizes some canonical case. -/
 theorem realizes_canonical {S : ℝ} (hS : S ≤ Ux) {ctr : Fin 11 → ℝ × ℝ} {ang : Fin 11 → ℝ}
     (h : PackIn (cbox S) ctr ang) : ∃ J ∈ canonicalMasks, RealizesIn S J := by
-  obtain ⟨hin, hd⟩ := h
-  have hb : ∀ i, InB (ctr i) := fun i => centre_inB hS (hin i)
   choose l hl16 hlc using fun i => exists_cell (ctr i)
-  have hinj : Function.Injective l := by
-    intro i j hij
-    by_contra hne
-    have h1 := one_le_dist (hd i j hne)
-    have h2 := same_cell (hl16 i) (hlc i) (hij ▸ hlc j) (hb i) (hb j)
-    linarith
-  set J : List ℕ := (List.range 16).filter fun a => decide (∃ i, l i = a) with hJdef
-  have hmemJ : ∀ a, a ∈ J ↔ ∃ i, l i = a := by
-    intro a
-    simp only [hJdef, List.mem_filter, List.mem_range, decide_eq_true_eq]
-    constructor
-    · exact fun h => h.2
-    · rintro ⟨i, rfl⟩; exact ⟨hl16 i, i, rfl⟩
-  have hJlen : J.length = 11 := by
-    have hnd : J.Nodup := List.nodup_range.filter _
-    have hfs : J.toFinset = Finset.univ.image l := by
-      ext a; simp [List.mem_toFinset, hmemJ]
-    rw [← List.toFinset_card_of_nodup hnd, hfs, Finset.card_image_of_injective _ hinj]
-    simp
-  have hJsub : J ∈ List.sublistsLen 11 (List.range 16) :=
-    List.mem_sublistsLen.mpr ⟨List.filter_sublist, hJlen⟩
-  have hJ16 : ∀ a ∈ J, a < 16 := fun a ha => List.mem_range.mp (List.mem_of_mem_filter ha)
-  let σ : ℕ → Fin 11 := fun a => if h : ∃ i, l i = a then h.choose else 0
-  have hσ : ∀ a ∈ J, l (σ a) = a := by
-    intro a ha
-    have hex := (hmemJ a).mp ha
-    simp only [σ, dif_pos hex]
-    exact hex.choose_spec
-  have hR : RealizesIn S J := by
-    refine ⟨11, ctr, ang, ⟨hin, hd⟩, σ, ?_, ?_⟩
-    · intro a ha b hb e
-      rw [← hσ a ha, ← hσ b hb, e]
-    · intro a ha
-      have := hlc (σ a)
-      rwa [hσ a ha] at this
-  rcases canonical_or_hmask hJsub with hc | hc
-  · exact ⟨J, hc, hR⟩
-  · exact ⟨hmask J, hc, hR.hmask hJ16⟩
+  have hinj := labels_injective hS h hl16 hlc
+  have hR := realizesIn_labList h hl16 hlc
+  have hJ16 : ∀ a ∈ labList l, a < 16 := fun a ha => List.mem_range.mp (List.mem_of_mem_filter ha)
+  rcases canonical_or_hmask (labList_mem hl16 hinj) with hc | hc
+  · exact ⟨labList l, hc, hR⟩
+  · exact ⟨hmask (labList l), hc, hR.hmask hJ16⟩
 
 end SquarePacking.S11Opt.Split
