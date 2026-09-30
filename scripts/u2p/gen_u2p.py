@@ -25,7 +25,7 @@ BM = 65536                       # barycentric denominator (Lean `U2P.bm`)
 BASE = 4096                      # digit base of the tree encoding
 FUEL = 200
 CHUNK = 1500                     # leaves per Lean theorem
-KMAX = 16                        # at most this many targets per step (0: no limit)
+KMAX = int(os.environ.get('U2P_KMAX', 16))   # at most this many targets per step (0: no limit)
 # Step parameters; `fine` is for cases the default does not close (env U2P_PROFILE).
 PROFILES = {'default': dict(eps_min=0.0025, umin=2 ** 14, max_iter=60),
             'fine': dict(eps_min=0.001, umin=2 ** 12, max_iter=200)}
@@ -396,6 +396,8 @@ def exclude(ci, h=0.005, eps=0.02, rows_depth=6, max_rounds=30, log=print):
                 log(f'rnd {rnd} owner {o}: TERMINAL leaves {st.nleaves} {st.kinds} ({time.time() - t0:.0f}s)')
                 return J, steps
             tg = st.targets(h)
+            st.root = None                   # keep only the encoded tree (memory)
+            st.alive = None
             new = None
             if len(tg) >= 3 and area(tg) > (area(cur[o].verts) if o in cur else 0) + 1e-6:
                 new = Owned(st.sid, o, tg)

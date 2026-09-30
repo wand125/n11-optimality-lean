@@ -24,6 +24,7 @@ def run_rounds(J, cs, cur, steps, node, max_rounds, log):
                 log(f'[{node}] rnd {rnd} owner {o}: TERMINAL leaves {st.nleaves} ({time.time() - t0:.0f}s)')
                 return ('term', node, list(cs), st.sid), last
             tg = st.targets()
+            st.root = None                   # keep only the encoded tree (memory)
             new = None
             if len(tg) >= 3 and area(tg) > (area(cur[o].verts) if o in cur else 0) + 1e-6:
                 new = Owned(st.sid, o, tg)
