@@ -6,7 +6,8 @@ import Sqpack.S11Opt.Upper
 
 Every unit file `Split/U*.lean` imports only this file (and the finished parts of `S11Opt`), and
 states its result with the definitions below.  `U6Final.lean` composes the units into
-`minSide 11 = T` without `sorry`; the units themselves are `sorry` until done.  See `SPLIT.md`.
+`minSide 11 = T`; each unit's own theorem stays a placeholder until the unit is done (branch
+`split`).  See `SPLIT.md` there.
 -/
 
 namespace SquarePacking.S11Opt.Split
