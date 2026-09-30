@@ -17,9 +17,12 @@ commit `6e1223c`, MIT), which is fetched by the build script and not copied.
 
 ## What is kernel-checked
 
-All four theorems below depend only on the standard axioms `propext`,
-`Classical.choice` and `Quot.sound`. No `sorry`, no `native_decide`, no new
-`axiom`.
+Every theorem below depends only on the standard axioms `propext`,
+`Classical.choice` and `Quot.sound` (twelve axiom reports in `Axioms.lean`). No
+`sorry`, no `native_decide`, no new `axiom`.
+
+The general pattern is the same throughout. A checker's soundness is proved once
+in Lean, and each certificate is then checked by the kernel against it.
 
 **1. The upper bound (Trump's packing).**
 
@@ -113,22 +116,78 @@ claim is checked exactly by the kernel. The author's two files are downloaded by
 `build.sh` from the pinned commit and checked by SHA256; they are not
 redistributed here.
 
+**4. General field certificates: the generic layer, and field certificates 3, 6 and 19.**
+
+```lean
+theorem SquarePacking.S11Opt.field_generic … : CaseExcluded (supp ++ P)
+theorem SquarePacking.S11Opt.F03.excluded (P : List ℕ) … : CaseExcluded (F03.supp ++ P)
+theorem SquarePacking.S11Opt.F06.excluded …
+theorem SquarePacking.S11Opt.F19.excluded …
+```
+
+All 59 of the author's baseline field certificates use only `majority_hull`
+features, but several also carry weighted point sites, thresholds above one and
+majority features with k up to 4. `FieldGen.lean` proves the general case once,
+covering the following:
+
+- barycentric witnesses for any number of points (`baryOk`);
+- capacity one of point and majority atoms (`pt_capacity`, `maj_capacity`);
+- double counting (`field_count`);
+- the exclusion theorem `field_generic`, which each certificate instantiates
+  with kernel-checked data.
+
+Two parts are shared by all certificates: the Voronoi half-planes of the 16
+cells (`Shared/Grid.lean`) and the ownership trees (`Own/`). Witness points are
+chosen on a barycentric lattice and, where the lattice is too coarse, refined
+to exact grid points with integer barycentric coordinates.
+
+**5. The owned-point induction (the core of the author's generic, prior and
+returned exclusions).**
+
+```lean
+theorem SquarePacking.S11Opt.Split.owned_of_cov … : Owned S J o p
+theorem SquarePacking.S11Opt.Split.excluded_of_cov … : ¬ RealizesIn S J
+theorem SquarePacking.S11Opt.Split.caseExcluded_of_not_in : ¬ RealizesIn Ux J → CaseExcluded J
+```
+
+The author's induction alternates outer pose domains and inner owned hulls
+(rational polygons). We re-prove it with the same box trees, round by round, and
+never represent a pose domain explicitly. Consider a cover of the poses of cell
+`o` in which every leaf does one of three things:
+
+- lies outside the cell or the walls;
+- captures a point already owned by another square (such a pose would overlap
+  that square, so it cannot occur);
+- captures the target point.
+
+Such a cover proves that the target is owned by `o`. The same cover without a
+target excludes the case.
+
+**6. The centred frame.** `SquarePacking.S11Opt.Split.frame`: a packing in a
+square of side `S` translates into the square of side `S` centred in the
+`Ux`-frame (PROOF.md §3).
+
 ## Not yet formalized
 
-The following parts of the author's proof are not formalized yet. Section
-numbers refer to PROOF.md; stage numbers S0–S7 are from our plan.
+Section numbers refer to PROOF.md.
 
-- The other 58 baseline field certificates (1,904 cases in all). They also use
-  `threshold` and `floor` features.
-- The 34 generic certificates and the "owned-hull induction" (R1–R7) used for
-  the remaining 32 + 76 + 173 cases and for case 438.
-- The injectivity half of the centre cover (at most one centre per cell). The
-  covering half is `exists_cell`.
-- The D4 bridge.
-- The local isolation of Trump's configuration (the focused rectangle; this
-  needs the necessary direction of the separating-axis theorem and a Taylor
-  bound).
-- The final composition giving `minSide 11 = T`.
+- **The other 55 field certificates.** Their trees (about 20 million leaves in
+  all) have been generated and are being kernel-checked on a cloud machine. They
+  will be added here, together with the combined theorem that the 59 field
+  certificates exclude 1,904 cases.
+- **The 276 remaining non-candidate cases (§5).** These are 27 generic, 76 prior
+  and 173 returned cases, to be re-proved with the induction rules of item 5.
+- **The remaining parts of the proof**, whose work is split into separate units
+  on the branch `split`:
+  - the injectivity half of the centre cover (§4; the covering half is
+    `exists_cell`);
+  - the D4 bridge (§6);
+  - the local isolation of Trump's configuration (§7; the necessary direction of
+    the separating-axis theorem, Taylor bounds and duals);
+  - case 438 (§8).
+
+  On that branch the composition `minSide 11 = T` already compiles. It depends
+  only on the units' `sorry`s, and it is work in progress.
 
 ## Reproduce
 
@@ -143,18 +202,25 @@ N11_JOBS=2 sh build.sh /tmp/n11-lean-build
 The work directory must not exist. The script does the following:
 
 1. Clones and pins the upstream commit, and overlays `lean/Sqpack/S11Opt`.
-2. Downloads the author's two input files and checks their hashes.
-3. Regenerates all data and compares it with `MANIFEST.sha256`; the generation
-   is deterministic.
+2. Downloads the author's input files and checks their hashes: the two files of
+   field-00, the data index, and five Git LFS objects (the replay manifest, the
+   centre cover, the packets of certificates 3, 6 and 19).
+3. Regenerates all data and compares it with `MANIFEST.sha256`: the upper
+   bound, field-00, and the search, ownership and emission of certificates 3, 6
+   and 19. The generation is deterministic.
 4. Rejects `sorry`, `native_decide` and `axiom`.
-5. Downloads the Mathlib cache and builds the upper bound, the field-00 trees
-   (`N11_JOBS` at a time) and the final assembly.
-6. Requires all four axiom reports to be the standard three, and prints
+5. Downloads the Mathlib cache and builds everything: the upper bound, the
+   field-00 trees and assembly, the shared grid, the ownership and cover trees of
+   certificates 3, 6 and 19 (`N11_JOBS` at a time), their assemblies, and the
+   induction rules.
+6. Requires all twelve axiom reports to be the standard three, and prints
    `N11_LEAN_BUILD_VERIFIED`.
 
-Measured on an Apple M4 Mac mini with `N11_JOBS=2`: 47 minutes wall, about
-20 CPU-minutes of user time (the Mathlib cache download and the build of the
-upstream dependencies are included). Peak memory is about 2 GB per process.
+For the first release (upper bound and field-00 only), `N11_JOBS=2` took
+47 minutes wall on an Apple M4 Mac mini, with about 20 CPU-minutes of user time;
+this includes the Mathlib cache download and the build of the upstream
+dependencies. Certificates 3, 6 and 19 add about 20 CPU-minutes of kernel
+checking and a few minutes of search. Peak memory is about 2 GB per process.
 
 ## Files
 
@@ -165,13 +231,18 @@ upstream dependencies are included). Peak memory is about 2 GB per process.
   - `FieldTree` — the box-tree checker;
   - `FieldBridge` — scaling, angles, barycentric checks;
   - `Cells` — Voronoi cells, `Realizes`/`CaseExcluded`, the half-turn, canonical cases;
+  - `FieldGen` — atoms, capacity, counting, `field_generic`;
+  - `Split/Interface`, `Split/U2Rules`, `Split/Frame` — the shared interface of the
+    remaining work, the induction rules, and the centred frame;
   - `Axioms`.
 - `scripts/` contains the generators:
   - `gen.py` writes `Data.lean` for the upper bound, using `field.py` for exact
     arithmetic in Q(u) and `construct.py` for Trump's packing (closed forms after
     the author's pinned `trump11/packing.py`, from jlevy/squares `c55726e`);
   - `field_tree.py` writes the field-00 trees;
-  - `gen_final.py` writes the field-00 assembly.
+  - `gen_final.py` writes the field-00 assembly;
+  - `field_all.py` (with `field_gen.py` and `author.py`) searches, and writes the
+    other field certificates, the shared grid and the ownership trees.
 - `MANIFEST.sha256` lists the SHA256 of every generated file.
 - `REPLAY.md` summarizes our independent re-run of the author's verifier.
 
