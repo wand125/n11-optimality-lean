@@ -25,6 +25,7 @@ BM = 65536                       # barycentric denominator (Lean `U2P.bm`)
 BASE = 4096                      # digit base of the tree encoding
 FUEL = 200
 CHUNK = 1500                     # leaves per Lean theorem
+KMAX = 16                        # at most this many targets per step (0: no limit)
 
 
 HPS = [FT.cell_halfplanes(k) for k in range(16)]
@@ -76,6 +77,22 @@ def hull(pts):
             hi.pop()
         hi.append(p)
     return lo[:-1] + hi[:-1]
+
+
+def simplify(h, kmax):
+    """Drop vertices of the convex polygon h (ccw), least area loss first, until at most kmax
+    remain; the result is inside h."""
+    h = list(h)
+    while kmax and len(h) > max(kmax, 3):
+        best = None
+        n = len(h)
+        for i in range(n):
+            a, b, c = h[i - 1], h[i], h[(i + 1) % n]
+            loss = abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]))
+            if best is None or loss < best[0]:
+                best = (loss, i)
+        h.pop(best[1])
+    return h
 
 
 def area(h):
@@ -325,7 +342,7 @@ class Step:
         good = [p for p in hull(cand)
                 if all(FT.pt_ok(tr, xl, xh, yl, yh, p[0], p[1]) for tr, xl, xh, yl, yh in self.alive)]
         if len(good) >= 3:
-            return hull(good)
+            return simplify(hull(good), KMAX)
         return self.grid_targets(poly, h, shrink)
 
     def grid_targets(self, poly, h, shrink):
@@ -352,7 +369,7 @@ class Step:
             X += st
         hv = [p for p in hull(pts)
               if all(FT.pt_ok(tr, xl, xh, yl, yh, p[0], p[1]) for tr, xl, xh, yl, yh in self.alive)]
-        return hull(hv)
+        return simplify(hull(hv), KMAX)
 
 
 # ---------------------------------------------------------------- driver

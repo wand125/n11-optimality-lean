@@ -5,7 +5,7 @@ c=$1; P=${2:-4}
 export PATH=$HOME/.elan/bin:$PATH
 cd $HOME/n11u2p
 D=Sqpack/S11Opt/Split/U2P/C$c
-mkdir -p $D $HOME/check_out
+rm -rf $D; mkdir -p $D $HOME/check_out
 cp $HOME/gen_out/C$c/*.lean $D/
 log=$HOME/check_out/C$c.log
 : > $log
