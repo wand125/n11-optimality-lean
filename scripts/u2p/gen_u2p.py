@@ -26,6 +26,10 @@ BASE = 4096                      # digit base of the tree encoding
 FUEL = 200
 CHUNK = 1500                     # leaves per Lean theorem
 KMAX = 16                        # at most this many targets per step (0: no limit)
+# Step parameters; `fine` is for cases the default does not close (env U2P_PROFILE).
+PROFILES = {'default': dict(eps_min=0.0025, umin=2 ** 14, max_iter=60),
+            'fine': dict(eps_min=0.001, umin=2 ** 12, max_iter=200)}
+PROFILE = os.environ.get('U2P_PROFILE', 'default')
 
 
 HPS = [FT.cell_halfplanes(k) for k in range(16)]
@@ -141,8 +145,12 @@ class Node:
 
 class Step:
     """One owner step: build a coarse tree, then refine the alive leaves that bind the core."""
-    def __init__(self, sid, o, others, rows_depth=5, eps=0.04, eps_min=0.0025, umin=2 ** 14,
-                 max_iter=60, bind_tol=2e-5, conds=()):
+    def __init__(self, sid, o, others, rows_depth=5, eps=0.04, eps_min=None, umin=None,
+                 max_iter=None, bind_tol=2e-5, conds=()):
+        pr = PROFILES[PROFILE]
+        eps_min = pr['eps_min'] if eps_min is None else eps_min
+        umin = pr['umin'] if umin is None else umin
+        max_iter = pr['max_iter'] if max_iter is None else max_iter
         self.sid, self.o, self.others = sid, o, [h for h in others if h.tris]
         self.hps = HPS[o] + list(conds)
         self.rows_depth, self.eps, self.eps_min, self.umin = rows_depth, eps * Q, eps_min * Q, umin

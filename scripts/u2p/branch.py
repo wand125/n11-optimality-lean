@@ -60,7 +60,12 @@ def solve(J, cs, cur, steps, depth, maxd, log, node='r', ncand=2):
         return res
     if depth >= maxd:
         return None
-    for _, o, h in split_candidates(last)[:ncand]:
+    cands = [(o, h) for _, o, h in split_candidates(last)[:ncand]]
+    forced = os.environ.get('U2P_FIRST_SPLIT')     # "owner,A,B,C": the first split of the root
+    if forced and node == 'r':
+        o, a, b, c = (int(x) for x in forced.split(','))
+        cands = [(o, (a, b, c))] + cands
+    for o, h in cands:
         nh = (-h[0], -h[1], -h[2])
         log(f'[{node}] split owner {o} by {h}')
         L = solve(J, [(o, h)] + cs, dict(cur), steps, depth + 1, maxd, log, node + 'L', ncand)
