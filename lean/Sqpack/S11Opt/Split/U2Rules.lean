@@ -127,6 +127,37 @@ theorem excluded_of_cov {S : ℝ} (hS : S ≤ Ux) (hS0 : 0 ≤ S) {J : List ℕ}
   obtain ⟨q, hq, -⟩ := capture_of_cov hS hS0 ho ho16 hothers hcov r
   simp at hq
 
+/-- The options of a batch promotion: the other squares' owned points, then one option whose
+groups are the targets (all captured at once). -/
+def batchOpts (others : List (ℕ × (ℕ × ℕ))) (targets : List (ℕ × ℕ)) :
+    List (List (List (ℕ × ℕ))) :=
+  others.map (fun e => [[e.2]]) ++ [targets.map (fun p => [p])]
+
+/-- **Batch promotion.**  One cover whose leaves capture another square's owned point or *all*
+the targets proves that every target is owned by `o`. -/
+theorem owned_all_of_cov {S : ℝ} (hS : S ≤ Ux) (hS0 : 0 ≤ S) {J : List ℕ} {o : ℕ} (ho : o ∈ J)
+    (ho16 : o < 16) {others : List (ℕ × (ℕ × ℕ))}
+    (hothers : ∀ e ∈ others, e.1 ∈ J ∧ e.1 ≠ o ∧ Owned S J e.1 e.2) {targets : List (ℕ × ℕ)}
+    (hcov : CovF G.Q G.M G.R (hpsC o) (batchOpts others targets) 0 G.M 0 G.M 0 G.R) :
+    ∀ p ∈ targets, Owned S J o p := by
+  intro p hp r
+  have hin : sq (r.ctr (r.σ o)) (r.ang (r.σ o)) 1 ⊆ box Ux :=
+    (r.pack.1 _).trans (cbox_subset hS hS0)
+  obtain ⟨op, hop, hg⟩ := bridge G.Q_pos G.R_pos hcov G.sc_pos G.sc_lt G.UM hin
+    (cellHP_all ho16 (r.cell o ho))
+  simp only [batchOpts, List.mem_append, List.mem_map, List.mem_singleton] at hop
+  rcases hop with ⟨e, he, rfl⟩ | rfl
+  · obtain ⟨q, hq, hm⟩ := hg _ (List.mem_singleton_self _)
+    rw [List.mem_singleton] at hq
+    subst hq
+    obtain ⟨heJ, hne, hown⟩ := hothers e he
+    have hne' : r.σ e.1 ≠ r.σ o := fun h => hne (r.inj _ heJ _ ho h)
+    exact (Set.disjoint_left.mp (disjoint_ScSq (r.pack.2 _ _ hne')) (hown r) hm).elim
+  · obtain ⟨q, hq, hm⟩ := hg [p] (List.mem_map.mpr ⟨p, hp, rfl⟩)
+    rw [List.mem_singleton] at hq
+    subst hq
+    exact hm
+
 /-- `cbox Ux` is the container `[0, Ux]²`, so case exclusions at `S = Ux` are `CaseExcluded`. -/
 theorem caseExcluded_of_not_in {J : List ℕ} (h : ¬ RealizesIn Ux J) : CaseExcluded J := by
   rintro ⟨n, ctr, ang, hin, hd, σ, hσ, hc⟩
