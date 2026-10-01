@@ -24,7 +24,7 @@ Q, R, M = FT.Q, FT.R, FT.M
 BM = 65536                       # barycentric denominator (Lean `U2P.bm`)
 BASE = 4096                      # digit base of the tree encoding
 FUEL = 200
-CHUNK = 1500                     # leaves per Lean theorem
+CHUNK = int(os.environ.get('U2P_CHUNK', 1500))   # leaves per Lean theorem (smaller: less kernel memory)
 KMAX = int(os.environ.get('U2P_KMAX', 16))   # at most this many targets per step (0: no limit)
 # Step parameters; `fine` is for cases the default does not close (env U2P_PROFILE).
 PROFILES = {'default': dict(eps_min=0.0025, umin=2 ** 14, max_iter=60),

@@ -21,3 +21,22 @@ terminal step; `theorem excluded : CaseExcluded (maskAt CASE)`).  Modules are
 * Round-robin over the owners until one owner has no alive leaf (terminal); only the steps the
   terminal step depends on are emitted.
 * `check_case.sh`, `watch_check.sh`: the Lean check of generated cases on a build machine.
+* `branch.py`: when the induction stops growing, split the centre of one owner by an axis-parallel
+  grid half-plane and solve both halves (`U2P/Branch.lean`).
+* `regen.py MANIFEST OUTDIR [JOBS]`: regenerate the cases of a MANIFEST and compare the sha256 of
+  every file; the per-case settings are header lines of the MANIFEST.
+* `make_tars.sh`: reproducible per-case archives `n11-u2p-C<4 digits>.tar.xz`.
+
+Settings (environment variables, all default to the plain generator):
+
+| variable | meaning | default |
+|---|---|---|
+| `U2P_KMAX` | at most this many targets per step (0: no limit) | 16 |
+| `U2P_PROFILE` | step refinement: `default` or `fine` (finer boxes and angles, 200 refinements) | default |
+| `U2P_CHUNK` | leaves per Lean theorem (smaller: less kernel memory) | 1500 |
+| `U2P_PART` | branch.py: leaf theorems per file (0: one file per step) | 0 |
+| `U2P_FIRST_SPLIT` | branch.py: forced first split `owner,A,B,C` | none |
+
+PyPy (`pypy3`) runs the generator about 12 times faster than CPython, with byte-identical output.
+Many targets (`U2P_KMAX=0`) make the kernel check heavy in memory (up to 30 GB per Lean process
+with 1,500-leaf theorems); use `U2P_CHUNK=300 U2P_PART=40` for such cases.

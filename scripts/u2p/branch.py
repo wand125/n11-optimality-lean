@@ -6,7 +6,8 @@ import sys
 import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from gen_u2p import (Step, Owned, CAN, M, R, Q, BASE, FUEL, CHUNK, area, encode, numeral, nleaves, pts)
+import gen_u2p as GU
+from gen_u2p import (Step, Owned, CAN, M, R, Q, BASE, FUEL, area, encode, numeral, nleaves, pts)
 
 
 def run_rounds(J, cs, cur, steps, node, max_rounds, log):
@@ -147,8 +148,11 @@ def emit(ci, J, steps, tree, outdir, prefix="U2P"):
     open(os.path.join(d, "Data.lean"), "w").write("\n".join(data))
     for n, st, new, keys, opt_index, T_index, ntg in info:
         hp = f"(hpsC {st.o} ++ condsOf cs_{st.node} {st.o})"
-        lines = [f"import {mod}.Data\n", "set_option linter.style.longLine false\n",
-                 f"namespace {ns}\n", "open FieldTree\n" + opn]
+        head = [f"import {mod}.Data\n", "set_option linter.style.longLine false\n",
+                f"namespace {ns}\n", "open FieldTree\n" + opn]
+        lines = []          # split theorems (and, without parts, the leaf theorems)
+        parts = [[]]        # leaf theorems, at most PART per file (PART = 0: all in S{n})
+        PART = int(os.environ.get('U2P_PART', 0))
         cnt = [0]
 
         def chunks(t, box):
@@ -156,11 +160,17 @@ def emit(ci, J, steps, tree, outdir, prefix="U2P"):
             stmt = f"CovF G.Q G.M G.R {hp} opts{n} {x0} {x1} {y0} {y1} {u0} {u1}"
             cnt[0] += 1
             nm = f"cov{n}_{cnt[0]}"
-            if nleaves(t) <= CHUNK:
+            if nleaves(t) <= GU.CHUNK:
                 dg = []
                 encode(t, opt_index, T_index, ntg, dg)
-                lines.append(f"theorem {nm} : {stmt} :=\n  soundDec G.Q G.M G.R {BASE} {FUEL} {numeral(dg)} "
-                             f"G.Q_pos G.R_pos {hp} opts{n} (by decide +kernel)\n")
+                th = (f"theorem {nm} : {stmt} :=\n  soundDec G.Q G.M G.R {BASE} {FUEL} {numeral(dg)} "
+                      f"G.Q_pos G.R_pos {hp} opts{n} (by decide +kernel)\n")
+                if PART:
+                    if len(parts[-1]) >= PART:
+                        parts.append([])
+                    parts[-1].append(th)
+                else:
+                    lines.append(th)
                 return nm
             ax = t[0]
             if ax == 'X':
@@ -176,7 +186,16 @@ def emit(ci, J, steps, tree, outdir, prefix="U2P"):
         root = chunks(st.tree, (0, M, 0, M, 0, R))
         lines.append(f"theorem cov{n} : CovF G.Q G.M G.R {hp} opts{n} 0 {M} 0 {M} 0 {R} := {root}\n")
         lines.append(f"end {ns}\n")
-        open(os.path.join(d, f"S{n}.lean"), "w").write("\n".join(lines))
+        if PART:
+            pnames = []
+            for k, ths in enumerate(p for p in parts if p):
+                pnames.append(f"S{n}_p{k}")
+                open(os.path.join(d, f"S{n}_p{k}.lean"), "w").write(
+                    "\n".join(head + ths + [f"end {ns}\n"]))
+            imports = [f"import {mod}.{pn}\n" for pn in pnames]
+            open(os.path.join(d, f"S{n}.lean"), "w").write("\n".join(imports + head[1:] + lines))
+        else:
+            open(os.path.join(d, f"S{n}.lean"), "w").write("\n".join(head + lines))
     L = [f"import {mod}.S{n}" for n, *_ in info]
     L += ["\nset_option linter.style.longLine false\nset_option maxRecDepth 100000\n", f"namespace {ns}\n", "open FieldTree\n" + opn,
           f"lemma hJ : J = maskAt {ci} := by decide +kernel\n"]
