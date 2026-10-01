@@ -396,6 +396,7 @@ def exclude(ci, h=0.005, eps=0.02, rows_depth=6, max_rounds=30, log=print):
                 log(f'rnd {rnd} owner {o}: TERMINAL leaves {st.nleaves} {st.kinds} ({time.time() - t0:.0f}s)')
                 return J, steps
             tg = st.targets(h)
+            nalive = len(st.alive)
             st.root = None                   # keep only the encoded tree (memory)
             st.alive = None
             new = None
@@ -404,7 +405,7 @@ def exclude(ci, h=0.005, eps=0.02, rows_depth=6, max_rounds=30, log=print):
                 cur[o] = new
                 progress = True
             steps.append((st, new))
-            log(f'rnd {rnd} owner {o}: leaves {st.nleaves} alive {len(st.alive)} {st.kinds} '
+            log(f'rnd {rnd} owner {o}: leaves {st.nleaves} alive {nalive} {st.kinds} '
                 f'hull {len(tg)} area {area(cur[o].verts) if o in cur else 0:.4f} ({time.time() - t0:.0f}s)')
         if not progress:
             log('no progress')

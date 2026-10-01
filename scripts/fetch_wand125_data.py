@@ -39,6 +39,14 @@ DEFAULT_TAG = "n11-certs-v1"
 # paths are `<case directory name>/<file>`.  A unit not listed here uses DEFAULT_LAYOUT.
 LAYOUTS = {
     "U2P": ("n11-u2p-C{case:04d}.tar.xz", "Sqpack/S11Opt/Split/U2P", "C{case}"),
+    "F": ("n11-field-F{case:02d}.tar.xz", "Sqpack/S11Opt", "F{case:02d}"),
+}
+
+# Units that are one archive of a few directories and files under a parent, not per case:
+# unit: (asset name, parent directory).  The MANIFEST paths are relative to the parent; every
+# top-level directory named there is replaced as a whole and must hold exactly the listed files.
+TREES = {
+    "FCOMMON": ("n11-field-common.tar.xz", "Sqpack/S11Opt"),
 }
 
 
@@ -139,6 +147,99 @@ def safe_extract(archive, dest, unit, case):
                     shutil.copyfileobj(src, f)
 
 
+def read_tree_manifest(path):
+    """{relative path: sha256} and the header lines (paths may have one directory level)."""
+    files, header = {}, []
+    with open(path) as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not line.strip():
+                continue
+            if line.startswith("#"):
+                header.append(line)
+                continue
+            h, rel = line.split(None, 1)
+            parts = rel.split("/")
+            if len(parts) > 2 or ".." in parts or "" in parts:
+                raise ValueError(f"bad MANIFEST path: {rel}")
+            files[rel] = h
+    return files, header
+
+
+def verify_tree(base, want):
+    """True iff `base` holds the files of `want` with those hashes, and every directory named in
+    `want` holds exactly its listed files."""
+    dirs = {rel.split("/")[0] for rel in want if "/" in rel}
+    for d in sorted(dirs):
+        p = os.path.join(base, d)
+        if not os.path.isdir(p):
+            return False, f"missing directory {d}"
+        have = sorted(os.listdir(p))
+        listed = sorted(rel.split("/", 1)[1] for rel in want if rel.startswith(d + "/"))
+        if have != listed:
+            return False, f"file set of {d} differs"
+    for rel, h in want.items():
+        p = os.path.join(base, *rel.split("/"))
+        if not os.path.isfile(p) or os.path.islink(p):
+            return False, f"not a regular file: {rel}"
+        if sha256_file(p) != h:
+            return False, f"sha256 mismatch: {rel}"
+    return True, "ok"
+
+
+def fetch_tree(a, man):
+    asset, parent = TREES[a.unit]
+    want, _ = read_tree_manifest(man)
+    target = os.path.join(a.root, *parent.split("/"))
+    if a.verify_only:
+        ok, why = verify_tree(target, want)
+        print(f"{a.unit}: {'OK' if ok else 'FAIL ' + why}")
+        return 0 if ok else 1
+    base = f"https://github.com/{a.repo}/releases/download/{a.tag}"
+    with tempfile.TemporaryDirectory() as tmp:
+        sums_path = os.path.join(a.from_dir, "SHA256SUMS") if a.from_dir else os.path.join(tmp, "SHA256SUMS")
+        arch = os.path.join(a.from_dir, asset) if a.from_dir else os.path.join(tmp, asset)
+        try:
+            if not a.from_dir:
+                download(f"{base}/SHA256SUMS", sums_path)
+                download(f"{base}/{asset}", arch)
+            sums = read_sums(sums_path)
+            if sums.get(asset) != sha256_file(arch):
+                raise ValueError(f"{asset}: archive sha256 differs from SHA256SUMS")
+            prefix = parent + "/"
+            dirs = {rel.split("/")[0] for rel in want if "/" in rel}
+            with tarfile.open(arch, "r:xz") as tf:
+                for m in tf.getmembers():
+                    name = m.name.lstrip("./")
+                    if m.isdir() and (prefix.startswith(name + "/") or name[len(prefix):] in dirs):
+                        continue
+                    if not m.isfile() or not name.startswith(prefix) or name[len(prefix):] not in want:
+                        raise ValueError(f"unexpected archive member: {m.name}")
+                for m in tf.getmembers():
+                    if m.isfile():
+                        out = os.path.join(tmp, "x", m.name.lstrip("./"))
+                        os.makedirs(os.path.dirname(out), exist_ok=True)
+                        with open(out, "wb") as f:
+                            shutil.copyfileobj(tf.extractfile(m), f)
+            work = os.path.join(tmp, "x", *parent.split("/"))
+            ok, why = verify_tree(work, want)
+            if not ok:
+                raise ValueError(f"MANIFEST check failed: {why}")
+            os.makedirs(target, exist_ok=True)
+            for d in sorted(dirs):
+                if os.path.exists(os.path.join(target, d)):
+                    shutil.rmtree(os.path.join(target, d))
+                shutil.move(os.path.join(work, d), os.path.join(target, d))
+            for rel in want:
+                if "/" not in rel:
+                    shutil.move(os.path.join(work, rel), os.path.join(target, rel))
+            print(f"{a.unit}: OK")
+            return 0
+        except Exception as e:
+            print(f"{a.unit}: FAIL {e}")
+            return 1
+
+
 def download(url, path):
     with urllib.request.urlopen(url) as r, open(path, "wb") as f:
         shutil.copyfileobj(r, f)
@@ -158,6 +259,8 @@ def main():
     a = ap.parse_args()
     a.unit = a.unit.upper()
     man = a.manifest or os.path.join("verification", "wand125", f"MANIFEST_{a.unit}.sha256")
+    if a.unit in TREES:
+        sys.exit(fetch_tree(a, man))
     cases, _ = read_manifest(man, layout(a.unit)[2])
     sel = a.cases or sorted(cases)
     for c in sel:
