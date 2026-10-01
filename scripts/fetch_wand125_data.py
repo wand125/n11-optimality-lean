@@ -156,6 +156,7 @@ def main():
     ap.add_argument("--verify-only", action="store_true", help="only check the case directories in place")
     ap.add_argument("--force", action="store_true", help="replace a case directory already in place")
     a = ap.parse_args()
+    a.unit = a.unit.upper()
     man = a.manifest or os.path.join("verification", "wand125", f"MANIFEST_{a.unit}.sha256")
     cases, _ = read_manifest(man, layout(a.unit)[2])
     sel = a.cases or sorted(cases)
